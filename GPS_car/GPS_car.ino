@@ -15,13 +15,14 @@
 const int RXPin = 4, TXPin = 3;
 const uint32_t GPSBaud = 9600; //Default baud of NEO-6M is 9600
 
-int motorPwmVal = 75;
+int motorPwmVal = 50;
 const int motorPin = 11;
 
 float targetCourse;
 float currentCourse;
 
 bool A7_state;
+bool wayPointReached = false; // Confirms that the car has arrived at target co-ordinates
 
 
 TinyGPSPlus gps; // the TinyGPS++ object
@@ -31,8 +32,14 @@ PWMServo steerServo;
 
 LSM303 compass;
 
-const double target_lat = -31.98013;
-const double target_lon = 115.81865;
+const double initial_target_lat = -31.98013;
+const double initial_target_lon = 115.81865;
+
+double final_target_lat;
+double final_target_lon;
+
+double target_lat;
+double target_lon;
 
 void setup() {
   Serial.begin(9600);
@@ -49,10 +56,20 @@ void setup() {
   compass.m_max = (LSM303::vector<int16_t>) {
     +32767, +32767, +32767
   };
+
+  final_target_lat = gps.location.lat();
+  final_target_lon = gps.location.lng();
 }
 
 void loop() {
-
+  if (wayPointReached == true ) {
+    target_lat = final_target_lat;
+    target_lon = final_target_lon;
+  }
+  else {
+    target_lat = initial_target_lat;
+    target_lon = initial_target_lon;
+  }
   if (analogRead(A7) > 500)
   {
     A7_state = HIGH;
@@ -105,33 +122,31 @@ void loop() {
         //        Serial.print(F("current course: "));
         //        Serial.println(gps.course.deg());
 
-        if (currentCourse > targetCourse && abs(currentCourse-targetCourse > 20))
+        if (currentCourse > targetCourse && abs(currentCourse - targetCourse > 10))
         {
           turnLeft();
           //          delay(500);
           //          goStraight();
         }
 
-        else if (currentCourse < targetCourse && abs(currentCourse-targetCourse) > 20)
+        else if (currentCourse < targetCourse && abs(currentCourse - targetCourse) > 10)
         {
           turnRight();
           //          delay(500);
           //          goStraight();
         }
 
-        else if (abs((currentCourse - targetCourse)) < 20)
+        else if (abs((currentCourse - targetCourse)) < 10)
         {
           goStraight();
         }
 
-        if (distanceToTarget < 10)
+        if (distanceToTarget < 2)
         {
-          motorPwmVal = 0;
-        }
-
-        else if (distanceToTarget < 3)
-        {
-          motorPwmVal = 50;
+          wayPointReached = true;
+          stopMoving();
+          delay(3000);
+          turnAround();
         }
 
       } else {
@@ -186,4 +201,12 @@ void stopMoving()
 {
   analogWrite(motorPin, 0);
   Serial.println("Stop Moving");
+}
+
+void turnAround()
+{
+  steerServo.write(20);
+  startMoving();
+  delay(3000);
+  goStraight();
 }
