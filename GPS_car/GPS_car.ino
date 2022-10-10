@@ -1,10 +1,4 @@
-/*
-   Created by ArduinoGetStarted.com
-
-   This example code is in the public domain
-
-   Tutorial page: https://arduinogetstarted.com/tutorials/arduino-gps
-*/
+//GPS Car
 
 #include <PWMServo.h>
 #include <TinyGPS++.h>
@@ -12,31 +6,30 @@
 #include <Wire.h>
 #include <LSM303.h>
 
-const int RXPin = 4, TXPin = 3;
+//Initialising variables
+const int RXPin = 4, TXPin = 3; //RX and TX for NEO-6M
 const uint32_t GPSBaud = 9600; //Default baud of NEO-6M is 9600
 
-int motorPwmVal = 50;
-const int motorPin = 11;
+int motorPwmVal = 40; //Motor speed
+const int motorPin = 11; //Pin controns motor mosfet
 
-int targetCourse;
-int currentCourse;
+int targetCourse; //Course from car to target
+int currentCourse; //Course measured by compass
 
-bool A7_state;
+bool A7_state; //State of A7, required since A7 cannot be a digital input
 bool wayPointReached = false; // Confirms that the car has arrived at target co-ordinates
 
 
 TinyGPSPlus gps; // the TinyGPS++ object
 SoftwareSerial gpsSerial(RXPin, TXPin); // the serial interface to the GPS device
+PWMServo steerServo; //Servo object
+LSM303 compass; //Compass object
 
-PWMServo steerServo;
+const double initial_target_lat = -31.99977;
+const double initial_target_lon = 115.90150;
 
-LSM303 compass;
-
-const double initial_target_lat = -31.9802383;
-const double initial_target_lon = 115.8199364;
-
-double final_target_lat;
-double final_target_lon;
+double final_target_lat = -31.99973;
+double final_target_lon = 115.90301;
 
 double target_lat;
 double target_lon;
@@ -44,6 +37,10 @@ double target_lon;
 void setup() {
   Serial.begin(9600);
   gpsSerial.begin(GPSBaud);
+
+  pinMode(13, OUTPUT);
+
+  digitalWrite(13, HIGH);
 
   steerServo.attach(SERVO_PIN_A); //pin 9 for arduino nano (handled by library)
 
@@ -57,23 +54,65 @@ void setup() {
     +32767, +32767, +32767
   };
 
-  final_target_lat = gps.location.lat();
-  final_target_lon = gps.location.lng();
+  //  while (gps.charsProcessed() < 10)
+  //  {
+  //    //do nothing
+  //    Serial.println("doing nothing");
+  //  }
+
+  goStraight();
+  delay(1000);
+  turnSlightLeft();
+  delay(1000);
+  turnLeft();
+  delay(1000);
+  goStraight();
+  delay(1000);
+  turnRight();
+  delay(1000);
+  turnSlightRight();
+  delay(1000);
+  goStraight();
+
+  while (millis() < 15000)
+  {
+    Serial.println("waiting for gps");
+
+    if (gpsSerial.available() > 0)
+    {
+      if (gps.encode(gpsSerial.read()))
+      {
+        if (gps.location.isValid())
+        {
+          final_target_lat = gps.location.lat();
+          final_target_lon = gps.location.lng();
+        }
+      }
+    }
+  }
+  digitalWrite(13, LOW);
+  Serial.println(final_target_lat, 8);
+  Serial.println(final_target_lon, 8);
 }
 
 void loop() {
+
   if (wayPointReached == true ) {
     target_lat = final_target_lat;
     target_lon = final_target_lon;
   }
-  else {
+
+  else
+  {
     target_lat = initial_target_lat;
     target_lon = initial_target_lon;
   }
+
   if (analogRead(A7) > 500)
   {
     A7_state = HIGH;
   }
+
   else
   {
     A7_state = LOW;
@@ -109,57 +148,40 @@ void loop() {
         //        Serial.print(F("speed in km/h: "));
         //        Serial.println(gps.speed.kmph());
 
-        Serial.print("course to target: ");
+        //        Serial.print("course to target: ");
         targetCourse = TinyGPSPlus::courseTo(gps.location.lat(), gps.location.lng(), target_lat, target_lon);
-        Serial.print(targetCourse);
+        //        Serial.print(targetCourse);
 
         compass.read();
         currentCourse = compass.heading();
-        Serial.print(" Current Course: ");
-        Serial.println(currentCourse);
+        //        Serial.print(" Current Course: ");
+        //        Serial.println(currentCourse);
 
         float errorCourse = (360 + targetCourse - currentCourse) % 360;
-
 
         if (errorCourse >= 345 || errorCourse < 15)
         {
           goStraight();
         }
-        
+
         else if (errorCourse >= 315 && errorCourse < 345)
         {
           turnSlightLeft();
         }
-        
+
         else if (errorCourse >= 15 && errorCourse < 45)
+        {
           turnSlightRight ();
+        }
+
         else if (errorCourse >= 180 && errorCourse < 315)
+        {
           turnLeft ();
+        }
         else if (errorCourse >= 45 && errorCourse < 180)
+        {
           turnRight ();
-
-
-        //        Serial.print(F("current course: "));
-        //        Serial.println(gps.course.deg());
-
-//        if (errorCourse )
-//        {
-//          turnSlightLeft();
-//          //          delay(500);
-//          //          goStraight();
-//        }
-//
-//        else if (currentCourse < targetCourse && abs(currentCourse - targetCourse) > 15)
-//        {
-//          turnSlightRight();
-//          //          delay(500);
-//          //          goStraight();
-//        }
-//
-//        else if (abs((currentCourse - targetCourse)) < 15)
-//        {
-//          goStraight();
-//        }
+        }
 
         if (distanceToTarget < 2)
         {
@@ -170,45 +192,45 @@ void loop() {
         }
 
       } else {
-        Serial.println(F("- location: INVALID"));
+        //Serial.println(F("- location: INVALID"));
       }
-
-      Serial.println();
     }
   }
-
   if (millis() > 5000 && gps.charsProcessed() < 10)
-    Serial.println(F("No GPS data received: check wiring"));
+  {
+    //Serial.println(F("No GPS data received: check wiring"));
+  }
+
 }
 
 void goStraight()
 {
   steerServo.write(90);
-  Serial.println("Go straight");
+  //Serial.println("Go straight");
 }
 
 void turnSlightLeft()
 {
   steerServo.write(80);
-  Serial.println("Turn Left SLightly");
+  //Serial.println("Turn Left SLightly");
 }
 
 void turnSlightRight()
 {
-  steerServo.write(110);
-  Serial.println("Turn Right Slightly");
+  steerServo.write(105);
+  //Serial.println("Turn Right Slightly");
 }
 
 void turnLeft()
 {
-  steerServo.write(70);
-  Serial.println("Turn Left");
+  steerServo.write(65);
+  //Serial.println("Turn Left");
 }
 
 void turnRight()
 {
   steerServo.write(120);
-  Serial.println("Turn Right");
+  //Serial.println("Turn Right");
 }
 
 void startMoving()
@@ -220,13 +242,15 @@ void startMoving()
 void stopMoving()
 {
   analogWrite(motorPin, 0);
-  Serial.println("Stop Moving");
+  //Serial.println("Stop Moving");
 }
 
 void turnAround()
 {
   steerServo.write(20);
-  startMoving();
+  analogWrite(motorPin, 100);
   delay(3000);
+  stopMoving();
   goStraight();
+  startMoving();
 }
