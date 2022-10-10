@@ -18,8 +18,8 @@ const uint32_t GPSBaud = 9600; //Default baud of NEO-6M is 9600
 int motorPwmVal = 50;
 const int motorPin = 11;
 
-float targetCourse;
-float currentCourse;
+int targetCourse;
+int currentCourse;
 
 bool A7_state;
 bool wayPointReached = false; // Confirms that the car has arrived at target co-ordinates
@@ -32,8 +32,8 @@ PWMServo steerServo;
 
 LSM303 compass;
 
-const double initial_target_lat = -31.98013;
-const double initial_target_lon = 115.81865;
+const double initial_target_lat = -31.9802383;
+const double initial_target_lon = 115.8199364;
 
 double final_target_lat;
 double final_target_lon;
@@ -118,28 +118,48 @@ void loop() {
         Serial.print(" Current Course: ");
         Serial.println(currentCourse);
 
+        float errorCourse = (360 + targetCourse - currentCourse) % 360;
+
+
+        if (errorCourse >= 345 || errorCourse < 15)
+        {
+          goStraight();
+        }
+        
+        else if (errorCourse >= 315 && errorCourse < 345)
+        {
+          turnSlightLeft();
+        }
+        
+        else if (errorCourse >= 15 && errorCourse < 45)
+          turnSlightRight ();
+        else if (errorCourse >= 180 && errorCourse < 315)
+          turnLeft ();
+        else if (errorCourse >= 45 && errorCourse < 180)
+          turnRight ();
+
 
         //        Serial.print(F("current course: "));
         //        Serial.println(gps.course.deg());
 
-        if (currentCourse > targetCourse && abs(currentCourse - targetCourse > 10))
-        {
-          turnLeft();
-          //          delay(500);
-          //          goStraight();
-        }
-
-        else if (currentCourse < targetCourse && abs(currentCourse - targetCourse) > 10)
-        {
-          turnRight();
-          //          delay(500);
-          //          goStraight();
-        }
-
-        else if (abs((currentCourse - targetCourse)) < 10)
-        {
-          goStraight();
-        }
+//        if (errorCourse )
+//        {
+//          turnSlightLeft();
+//          //          delay(500);
+//          //          goStraight();
+//        }
+//
+//        else if (currentCourse < targetCourse && abs(currentCourse - targetCourse) > 15)
+//        {
+//          turnSlightRight();
+//          //          delay(500);
+//          //          goStraight();
+//        }
+//
+//        else if (abs((currentCourse - targetCourse)) < 15)
+//        {
+//          goStraight();
+//        }
 
         if (distanceToTarget < 2)
         {
@@ -175,7 +195,7 @@ void turnSlightLeft()
 
 void turnSlightRight()
 {
-  steerServo.write(100);
+  steerServo.write(110);
   Serial.println("Turn Right Slightly");
 }
 
