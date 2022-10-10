@@ -15,11 +15,13 @@
 const int RXPin = 4, TXPin = 3;
 const uint32_t GPSBaud = 9600; //Default baud of NEO-6M is 9600
 
-int motorPwmVal = 50;
+int motorPwmVal = 75;
 const int motorPin = 11;
 
 float targetCourse;
 float currentCourse;
+
+bool A7_state;
 
 
 TinyGPSPlus gps; // the TinyGPS++ object
@@ -29,8 +31,8 @@ PWMServo steerServo;
 
 LSM303 compass;
 
-const double target_lat = -31.98015;
-const double target_lon = 115.81791;
+const double target_lat = -31.98013;
+const double target_lon = 115.81865;
 
 void setup() {
   Serial.begin(9600);
@@ -51,7 +53,25 @@ void setup() {
 
 void loop() {
 
+  if (analogRead(A7) > 500)
+  {
+    A7_state = HIGH;
+  }
+  else
+  {
+    A7_state = LOW;
+    analogWrite(motorPin, 0);
+  }
 
+  if (A7_state == HIGH)
+  {
+    startMoving();
+  }
+
+  else
+  {
+    stopMoving();
+  }
 
   if (gpsSerial.available() > 0) {
     if (gps.encode(gpsSerial.read())) {
@@ -73,7 +93,7 @@ void loop() {
         //        Serial.println(gps.speed.kmph());
 
         Serial.print("course to target: ");
-        targetCourse =TinyGPSPlus::courseTo(gps.location.lat(), gps.location.lng(), target_lat, target_lon);
+        targetCourse = TinyGPSPlus::courseTo(gps.location.lat(), gps.location.lng(), target_lat, target_lon);
         Serial.print(targetCourse);
 
         compass.read();
@@ -85,37 +105,33 @@ void loop() {
         //        Serial.print(F("current course: "));
         //        Serial.println(gps.course.deg());
 
-        if (currentCourse < targetCourse)
+        if (currentCourse > targetCourse && abs(currentCourse-targetCourse > 20))
         {
           turnLeft();
-//          delay(500);
-//          goStraight();
+          //          delay(500);
+          //          goStraight();
         }
 
-        else if (currentCourse > targetCourse)
+        else if (currentCourse < targetCourse && abs(currentCourse-targetCourse) > 20)
         {
           turnRight();
-//          delay(500);
-//          goStraight();
+          //          delay(500);
+          //          goStraight();
         }
 
-        else if (abs((currentCourse - targetCourse)) < 10)
+        else if (abs((currentCourse - targetCourse)) < 20)
         {
           goStraight();
         }
 
         if (distanceToTarget < 10)
         {
-          motorPwmVal = 100;
+          motorPwmVal = 0;
         }
 
         else if (distanceToTarget < 3)
         {
           motorPwmVal = 50;
-        }
-        else if (distanceToTarget == 0)
-        {
-          stopMoving();
         }
 
       } else {
@@ -133,31 +149,31 @@ void loop() {
 void goStraight()
 {
   steerServo.write(90);
-  //Serial.println("Go straight");
+  Serial.println("Go straight");
 }
 
 void turnSlightLeft()
 {
   steerServo.write(80);
-  //Serial.println("Turn Left SLightly");
+  Serial.println("Turn Left SLightly");
 }
 
 void turnSlightRight()
 {
   steerServo.write(100);
-  //Serial.println("Turn Right Slightly");
+  Serial.println("Turn Right Slightly");
 }
 
 void turnLeft()
 {
   steerServo.write(70);
-  //Serial.println("Turn Left");
+  Serial.println("Turn Left");
 }
 
 void turnRight()
 {
-  steerServo.write(110);
-  //Serial.println("Turn Right");
+  steerServo.write(120);
+  Serial.println("Turn Right");
 }
 
 void startMoving()
@@ -169,5 +185,5 @@ void startMoving()
 void stopMoving()
 {
   analogWrite(motorPin, 0);
-  //Serial.println("Stop Moving");
+  Serial.println("Stop Moving");
 }
