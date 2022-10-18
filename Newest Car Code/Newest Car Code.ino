@@ -20,7 +20,6 @@ bool A7_state;                 //State of A7, required since A7 cannot be a digi
 bool wayPointReached = false;  // Confirms that the car has arrived at target co-ordinates
 bool finished = false;
 
-
 TinyGPSPlus gps;                         // the TinyGPS++ object
 SoftwareSerial gpsSerial(RXPin, TXPin);  // the serial interface to the GPS device
 PWMServo steerServo;                     //Servo object
@@ -183,7 +182,9 @@ void loop() {
           //          finished = true;
         }
 
-      } else {
+      } 
+      else 
+      {
         //Serial.println(F("- location: INVALID"));
       }
     }
